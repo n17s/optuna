@@ -24,6 +24,7 @@ from optuna.testing.pytest_samplers import MultiObjectiveSamplerTestCase
 from optuna.testing.pytest_samplers import RelativeSamplerTestCase
 from optuna.testing.pytest_samplers import SingleOnlySamplerTestCase
 from optuna.trial import Trial
+from tests.samplers_tests.test_decision import MockDecisionClient
 
 
 def get_gp_sampler(
@@ -33,6 +34,18 @@ def get_gp_sampler(
         n_startup_trials=n_startup_trials,
         seed=seed,
         deterministic_objective=deterministic_objective,
+    )
+
+
+def get_decision_sampler(
+    *, n_startup_trials: int = 0, group: bool = False, seed: int | None = None
+) -> optuna.samplers.DecisionSampler:
+    return optuna.samplers.DecisionSampler(
+        client=MockDecisionClient(),
+        n_startup_trials=n_startup_trials,
+        n_candidates=16,
+        group=group,
+        seed=seed,
     )
 
 
@@ -50,6 +63,7 @@ sampler_class_with_seed: dict[str, Callable[[int], BaseSampler]] = {
     "NSGAIIISampler": lambda seed: optuna.samplers.NSGAIIISampler(seed=seed),
     "QMCSampler": lambda seed: optuna.samplers.QMCSampler(seed=seed),
     "GPSampler": lambda seed: get_gp_sampler(seed=seed, n_startup_trials=0),
+    "DecisionSampler": lambda seed: get_decision_sampler(seed=seed, n_startup_trials=0),
 }
 param_sampler_with_seed = []
 param_sampler_name_with_seed = []
@@ -102,6 +116,8 @@ class TestBasicSampler(BasicSamplerTestCase):
             optuna.samplers.QMCSampler,
             lambda: get_gp_sampler(n_startup_trials=0),
             lambda: get_gp_sampler(n_startup_trials=0, deterministic_objective=True),
+            lambda: get_decision_sampler(n_startup_trials=0),
+            lambda: get_decision_sampler(n_startup_trials=0, group=True),
         ]
     )
     def sampler(self, request: SubRequest) -> Callable[[], BaseSampler]:
@@ -117,6 +133,8 @@ class TestRelativeSampler(RelativeSamplerTestCase):
             optuna.samplers.QMCSampler,
             lambda: get_gp_sampler(n_startup_trials=0),
             lambda: get_gp_sampler(n_startup_trials=0, deterministic_objective=True),
+            lambda: get_decision_sampler(n_startup_trials=0),
+            lambda: get_decision_sampler(n_startup_trials=0, group=True),
         ]
     )
     def sampler(self, request: SubRequest) -> Callable[[], BaseSampler]:
@@ -144,6 +162,7 @@ class TestSingleOnlySampler(SingleOnlySamplerTestCase):
     @pytest.fixture(
         params=[
             lambda: optuna.samplers.CmaEsSampler(n_startup_trials=0),
+            lambda: get_decision_sampler(n_startup_trials=0),
         ]
     )
     def sampler(
@@ -194,6 +213,8 @@ def unset_seed_in_test(request: SubRequest) -> None:
         (lambda: optuna.samplers.GridSampler(search_space={"x": [0]}), True, False),
         (lambda: optuna.samplers.QMCSampler(), False, True),
         (lambda: get_gp_sampler(n_startup_trials=0), True, True),
+        (lambda: get_decision_sampler(n_startup_trials=0), True, True),
+        (lambda: get_decision_sampler(n_startup_trials=0, group=True), True, True),
     ],
 )
 def test_sampler_reseed_rng(
